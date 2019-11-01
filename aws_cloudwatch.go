@@ -196,6 +196,8 @@ func getNamespace(service *string) *string {
 		ns = "AWS/AutoScaling"
 	case "sqs":
 		ns = "AWS/SQS"
+	case "msk":
+		ns = "AWS/Kafka"
 	default:
 		log.Fatal("Not implemented namespace for cloudwatch metric: " + *service)
 	}
@@ -289,7 +291,7 @@ func getMetricsList(dimensions []*cloudwatch.Dimension, serviceName *string, met
 
 func queryAvailableDimensions(resource string, namespace *string, clientCloudwatch cloudwatchInterface) (dimensions []*cloudwatch.Dimension) {
 
-	if !strings.HasSuffix(*namespace, "ApplicationELB") {
+	if !strings.HasSuffix(*namespace, "ApplicationELB") || !strings.HasSuffix(*namespace,"Kafka" ){
 		log.Fatal("Not implemented queryAvailableDimensions: " + *namespace)
 		return nil
 	}
@@ -305,6 +307,8 @@ func queryAvailableDimensions(resource string, namespace *string, clientCloudwat
 		trimmedDimensionValue := strings.Replace(resource, "loadbalancer/", "", -1)
 		dimensions = append(dimensions, buildDimension("LoadBalancer", trimmedDimensionValue))
 	}
+
+	if strings.
 
 	return dimensions
 }
@@ -357,6 +361,8 @@ func detectDimensionsByService(service *string, resourceArn *string, clientCloud
 		dimensions = buildBaseDimension(arnParsed.Resource, "AutoScalingGroupName", "autoScalingGroupName/")
 	case "sqs":
 		dimensions = buildBaseDimension(arnParsed.Resource, "QueueName", "")
+	case "msk":
+		dimensions = queryAvailableDimensions(arnParsed.Resource, getNamespace(service), clientCloudwatch)
 	default:
 		log.Fatal("Not implemented cloudwatch metric: " + *service)
 	}
@@ -411,6 +417,29 @@ func fixServiceName(serviceName *string, dimensions []*cloudwatch.Dimension) str
 			return albSuffix + "_" + tgSuffix
 		} else if albSuffix == "" && tgSuffix != "" {
 			return tgSuffix
+		}
+	}
+
+	if *serviceName == "msk" {
+		var clusterSuffix, brokerSuffix, topicSuffix string
+		for _, dimension := range dimensions {
+			if *dimension.Name == "Cluster Name" {
+				clusterSuffix = "cluster"
+			}
+			if *dimension.Name == "Broker ID" {
+				brokerSuffix = "broker"
+			}
+			if *dimension.Name == "Topic" {
+				topicSuffix = "topic"
+			}
+		}
+		if clusterSuffix != "" && brokerSuffix != ""  && topicSuffix !=""{
+			return clusterSuffix + "_" + brokerSuffix + "_" + topicSuffix
+		} else if clusterSuffix != "" && brokerSuffix != ""  && topicSuffix =="" {
+			return clusterSuffix + "_" + brokerSuffix
+		}
+		  else {
+			return clusterSuffix
 		}
 	}
 

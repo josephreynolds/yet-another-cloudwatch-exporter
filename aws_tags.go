@@ -118,6 +118,8 @@ func (iface tagsInterface) get(job job) (resources []*tagsData, err error) {
 	case "sqs":
 		hotfix := aws.String("sqs")
 		filter = append(filter, hotfix)
+	case "msk":
+		hotfix := aws.String( v: "" )
 	default:
 		log.Fatal("Not implemented resources:" + job.Type)
 	}
